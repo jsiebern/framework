@@ -217,3 +217,36 @@ if ( ! function_exists('route_url'))
         return add_query_arg($query, herbert('router')->url($name, $args));
     }
 }
+
+if ( ! function_exists('needs_upgrade'))
+{
+    /**
+     * Checks if a plugin needs an upgrade
+     * @param string $plugin_path
+     * @return boolean
+     */
+    function needs_upgrade($plugin_path)
+    {
+        try {
+            $plugin_data = get_plugin_data($plugin_path.'/plugin.php');
+
+            $plugin_versions = unserialize(get_option('herbert_plugin_versions', serialize([])));
+            if (!isset($plugin_versions[$plugin_data['Name']]) || version_compare($plugin_versions[$plugin_data['Name']], $plugin_data['Version'] , '<')) {
+                $plugin_versions[$plugin_data['Name']] = $plugin_data['Version'];
+                if (get_option('herbert_plugin_versions')) {
+                    update_option('herbert_plugin_versions', serialize($plugin_versions));
+                }
+                else {
+                    add_option('herbert_plugin_versions', serialize($plugin_versions));
+                }
+                
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception $e) {
+            return false;
+        }
+    }
+}

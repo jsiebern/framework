@@ -304,7 +304,7 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
             array_get($config, 'migrations', [])
         );
     }
-
+    
     /**
       * Migrates the database
       * @return void
@@ -551,7 +551,16 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
             });
         }
 
-        $this->migrate();
+        $cache = [];
+        foreach (array_get($config, 'migrations', []) as $namespace => $require) {
+            if (in_array($namespace, $cache)) {
+                return;
+            }
+            $cache[] = $namespace;
+            $this['migration']->setNamespace($namespace);
+            $this['migration']->executeMigration();
+            $this['migration']->unsetNamespace();
+        }
 
         foreach (array_get($config, 'activators', []) as $activator)
         {
@@ -687,7 +696,17 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
             });
         }
 
-        $this['migration']->executeDeletion();
+        $cache = [];
+        foreach (array_get($config, 'migrations', []) as $namespace => $require) {
+            if (in_array($namespace, $cache)) {
+                return;
+            }
+            $cache[] = $namespace;
+            $this['migration']->setNamespace($namespace);
+            $this['migration']->executeDeletion();
+            $this['migration']->unsetNamespace();
+        }
+        
     }
 
     /**

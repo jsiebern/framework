@@ -5,11 +5,6 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 
 class Migration {
     /**
-      * @var string
-      */
-    private $migration_option = 'herbert_migrations';
-
-    /**
      * @var Illuminate\Database\Capsule\Manager
      */
     private $schema;
@@ -47,10 +42,17 @@ class Migration {
     }
 
     public function executeMigration() {
+        if (!$this->namespace) {
+            return;
+        }
         $existing = $this->getExistingMigrations();
 
         foreach ($this->migrations as $migration) {
             $namespace = $migration->getNamespace();
+            if ($namespace != $this->namespace) {
+                continue;
+            }
+
             $name = $migration->getName();
             $migration_slug = $namespace.'|'.$name;
 
@@ -68,7 +70,14 @@ class Migration {
     }
 
     public function executeDeletion() {
+        if (!$this->namespace) {
+            return;
+        }
+        
         foreach ($this->migrations as $migration) {
+            if ($migration->getNamespace() != $this->namespace) {
+                continue;
+            }
             $delete = $migration->getDelete();
             if ($delete) {
                 call_user_func($delete, $this->schema);
@@ -79,22 +88,26 @@ class Migration {
     }
 
     private function setExistingMigrations($existing) {
-        if (get_option($this->migration_option)) {
-            update_option($this->migration_option, serialize($existing));
+        if (get_option($this->getExistingName())) {
+            update_option($this->getExistingName(), serialize($existing));
         }
         else {
-            add_option($this->migration_option, serialize($existing));
+            add_option($this->getExistingName(), serialize($existing));
         }
     }
 
     private function getExistingMigrations() {
         return unserialize(
-            get_option($this->migration_option, serialize([]))
+            get_option($this->getExistingName(), serialize([]))
         );
     }
 
     public function resetExistingMigrations() {
-        delete_option($this->migration_option);
+        delete_option($this->getExistingName());
+    }
+
+    private function getExistingName() {
+        return $this->namespace.'_migrations';
     }
 
     /**

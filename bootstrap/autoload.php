@@ -30,7 +30,7 @@ $herbert = Herbert\Framework\Application::getInstance();
  */
 $iterator = new DirectoryIterator(plugin_directory());
 
-
+$needsMigration = false;
 foreach ($iterator as $directory)
 {
     if ( ! $directory->valid() || $directory->isDot() || ! $directory->isDir())
@@ -88,13 +88,20 @@ foreach ($iterator as $directory)
     @require_once $root.'/plugin.php';
 
     $herbert->loadPlugin($config);
-}
 
-/**
- * Migrate if in debug
- */
-if (defined('WP_DEBUG') && WP_DEBUG) {
-    $herbert->migrate();
+    // Migrate if we need to or in debug
+    if (needs_upgrade($root) || (defined('WP_DEBUG') && WP_DEBUG)) {
+        $cache = [];
+        foreach (array_get($config, 'migrations', []) as $namespace => $require) {
+            if (in_array($namespace, $cache)) {
+                return;
+            }
+            $cache[] = $namespace;
+            $herbert['migration']->setNamespace($namespace);
+            $herbert['migration']->executeMigration();
+            $herbert['migration']->unsetNamespace();
+        }
+    }
 }
 
 /**
