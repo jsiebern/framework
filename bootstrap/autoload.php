@@ -91,6 +91,13 @@ foreach ($iterator as $directory)
 }
 
 /**
+ * Migrate if in debug
+ */
+if (defined('WP_DEBUG') && WP_DEBUG) {
+    $herbert->migrate();
+}
+
+/**
  * Boot Herbert.
  */
 $herbert->boot();

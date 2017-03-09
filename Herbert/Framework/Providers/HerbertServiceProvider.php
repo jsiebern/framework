@@ -106,6 +106,16 @@ class HerbertServiceProvider extends ServiceProvider {
             'Herbert\Framework\Notifier'
         );
 
+        $this->app->instance(
+            'migration',
+            $this->app->make('Herbert\Framework\Migration', [ 'app' => $this->app ])
+        );
+
+        $this->app->alias(
+            'migration',
+            'Herbert\Framework\Migration'
+        );
+
         $this->app->singleton(
             'errors',
             function ()

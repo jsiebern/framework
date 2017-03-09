@@ -14,7 +14,7 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
     /**
      * The application's version.
      */
-    const VERSION = '0.9.13';
+    const VERSION = '0.9.9';
 
     /**
      * The application's version.
@@ -299,6 +299,48 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
         $this->addPluginComposers(
             array_get($config, 'viewComposers', [])
         );
+
+        $this->addPluginMigrations(
+            array_get($config, 'migrations', [])
+        );
+    }
+
+    /**
+      * Migrates the database
+      * @return void
+      */
+    public function migrate() {
+        $this['migration']->executeMigration();
+    }
+
+    /**
+     * Load all plugin migrations.
+     *
+     * @param array $migrations
+     * @return void
+     */
+    protected function addPluginMigrations($migrations = []) {
+        $container = $this;
+        $migration = $this['migration'];
+
+        foreach ($migrations as $namespace => $requires)
+        {
+            $migration->setNamespace($namespace);
+
+            foreach ((array) $requires as $require)
+            {
+                $iterator = new \DirectoryIterator($require);
+                foreach ($iterator as $fileInfo)
+                {
+                    if (!$fileInfo->valid() || $fileInfo->isDot() || $fileInfo->isDir() || strpos($fileInfo->getFilename(), '.migration.php') === false) {
+                        continue;
+                    }
+                    require_once $require.'/'.$fileInfo->getFilename();
+                }
+            }
+
+            $migration->unsetNamespace();
+        }
     }
 
     /**
@@ -509,6 +551,8 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
             });
         }
 
+        $this->migrate();
+
         foreach (array_get($config, 'activators', []) as $activator)
         {
             if ( ! file_exists($activator))
@@ -642,6 +686,8 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
                 $this->call($class . '@delete', ['table' => $table, 'app' => $this]);
             });
         }
+
+        $this['migration']->executeDeletion();
     }
 
     /**
