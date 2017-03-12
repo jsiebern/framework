@@ -87,7 +87,7 @@ foreach ($iterator as $directory)
 
     @require_once $root.'/plugin.php';
 
-    $herbert->loadPlugin($config);
+    $herbert->loadPlugin($config, $root);
 
     // Migrate if we need to or in debug
     if (needs_upgrade($root) || (defined('WP_DEBUG') && WP_DEBUG)) {
