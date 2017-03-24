@@ -58,7 +58,7 @@ foreach ($iterator as $directory)
         }
 
         $herbert->pluginMatched($root);
-        $herbert->loadPlugin($config);
+        $herbert->loadPlugin($config, $root);
         $herbert->activatePlugin($root);
     });
 

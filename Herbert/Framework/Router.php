@@ -124,6 +124,9 @@ class Router {
             $this->valuePatternReplace,
             str_replace('/', '\\/', $route['uri'])
         );
+        if (strpos($uri, 'wp-admin') !== false && !current_user_can('edit_posts')) {
+            return;
+        }
 
         $url = 'index.php?';
 

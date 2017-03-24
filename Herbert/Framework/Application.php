@@ -255,6 +255,10 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
      */
     public function loadPlugin($config, $root)
     {
+        if (!$this->loadPluginUpdate($config, $root)) {
+            return;
+        }
+        
         $this->loadPluginRequires(
             array_get($config, 'requires', [])
         );
@@ -303,70 +307,8 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
         $this->addPluginMigrations(
             array_get($config, 'migrations', [])
         );
-        
-        $this->registerPluginUpdate(
-            array_get($config, 'update', null),
-            $root
-        );
-        
     }
 
-    public function registerPluginUpdate($update = null, $root = '') {
-
-        if (!$update || !array_get($update, 'url', null) || !$root) {
-            return;
-        }
-        $url = array_get($update, 'url');
-        $plugin = plugin_basename($root);
-        $plugin_data = get_plugin_data($root.'/plugin.php');
-
-        add_filter('pre_set_site_transient_update_plugins', function($transient) use($url, $plugin, $plugin_data) {
-            if (empty($transient) || !is_object($transient)) {
-                return $transient;
-            }
-            if (empty($transient->checked)) {
-                return $transient;
-            }
-
-            $plugin_file = $plugin.'/plugin.php';
-
-            try {
-                $response = wp_remote_get(
-                    $url.'/'.$plugin.'/version?plugin_version='.array_get($plugin_data, 'Version', ''), [
-                        'headers' => [
-                            'license-key' => null
-                        ]
-                    ]
-                );
-                $body = json_decode(array_get($response, 'body', ''), true);
-                if ($body) {
-                    if ($body['status'] == 'success') {
-                        if (isset($body['payload']['new_version']) && $body['payload']['new_version']) {
-                            $obj = new \stdClass();
-                            $obj->slug = $plugin;
-                            $obj->new_version = $body['payload']['new_version'];
-                            $obj->url = $plugin_data['PluginURI'];
-                            $obj->package =  $body['payload']['url'];
-                            $transient->response[$plugin_file] = $obj;
-                        }
-                    }
-                    else {
-                        throw new \Exception($body['payload']);
-                    }
-                }
-                else {
-                    throw new \Exception('Invalid response from update server: Wrong format.');
-                }
-            }
-            catch (Exception $e) {
-                $msg = _cookfly('Error connecting to the upgrade server:').' '.$e->getMessage();
-                $params = new WP_Error('plugins_api_failed', $msg);
-            }
-
-            return $transient;
-        });
-    }
-    
     /**
       * Migrates the database
       * @return void
@@ -769,6 +711,38 @@ class Application extends \Illuminate\Container\Container implements \Illuminate
             $this['migration']->unsetNamespace();
         }
         
+    }
+
+    private function loadPluginUpdate($config, $root) {
+        $pluginUpdate = new Update(
+            $this,
+            array_get($config, 'update', null),
+            $root
+        );
+
+        if ($pluginUpdate->isLicensed()) {
+            $status = $pluginUpdate->licenseIsValid();
+            if ($status !== true) {
+                if ($status == 'unavailable') {
+                    $pluginUpdate->printLicenseEnterScreen();
+
+                    return false;
+                }
+                else if ($status == 'needs_revalidation') {
+                    $pluginUpdate->printRevalidationFailedScreen();
+                }
+                else if ($status == 'grace_ended') {
+                    $pluginUpdate->printGraceEndedScreen();
+
+                    return false;
+                }
+                else {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
     }
 
     /**

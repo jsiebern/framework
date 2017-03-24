@@ -250,3 +250,42 @@ if ( ! function_exists('needs_upgrade'))
         }
     }
 }
+
+if ( ! function_exists('herbert_encrypt') ) {
+    function herbert_encrypt($value, $key) {
+        $salt = openssl_random_pseudo_bytes(8);
+        $salted = '';
+        $dx = '';
+        while (strlen($salted) < 48) {
+            $dx = md5($dx.$key.$salt, true);
+            $salted .= $dx;
+        }
+        $key = substr($salted, 0, 32);
+        $iv  = substr($salted, 32,16);
+        $encrypted_data = openssl_encrypt($value, 'aes-256-cbc', $key, true, $iv);
+        $data = array('ct' => base64_encode($encrypted_data), 'iv' => bin2hex($iv), 's' => bin2hex($salt));
+        return serialize($data);
+    }
+}
+
+if ( ! function_exists('herbert_decrypt') ) {
+    function herbert_decrypt($value, $key) {
+        $data = unserialize($value);
+        try {
+            $salt = hex2bin($data['s']);
+            $iv  = hex2bin($data['iv']);
+        } catch(Exception $e) { return null; }
+        $ct = base64_decode($data['ct']);
+        $concatedPassphrase = $key.$salt;
+        $md5 = array();
+        $md5[0] = md5($concatedPassphrase, true);
+        $result = $md5[0];
+        for ($i = 1; $i < 3; $i++) {
+            $md5[$i] = md5($md5[$i - 1].$concatedPassphrase, true);
+            $result .= $md5[$i];
+        }
+        $key = substr($result, 0, 32);
+        $data = openssl_decrypt($ct, 'aes-256-cbc', $key, true, $iv);
+        return $data;
+    }
+}

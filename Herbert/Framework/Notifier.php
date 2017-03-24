@@ -42,7 +42,7 @@ class Notifier {
      * @param string  $class
      * @param boolean $flash
      */
-    protected function notify($message, $class = 'updated', $flash = false)
+    protected function notify($message, $class = 'success', $flash = false)
     {
         $notification = [
             'message' => $message,
@@ -69,7 +69,7 @@ class Notifier {
      */
     protected function success($message, $flash = false)
     {
-        $this->notify($message, 'updated', $flash);
+        $this->notify($message, 'success', $flash);
     }
 
     /**
@@ -80,7 +80,7 @@ class Notifier {
      */
     protected function warning($message, $flash = false)
     {
-        $this->notify($message, 'update-nag', $flash);
+        $this->notify($message, 'warning', $flash);
     }
 
     /**
@@ -103,7 +103,7 @@ class Notifier {
     {
         foreach ($this->notices as $notice)
         {
-            echo "<div class=\"{$notice['class']}\"><p>{$notice['message']}</p></div>";
+            echo "<div class=\"notice notice-{$notice['class']}\"><p>{$notice['message']}</p></div>";
         }
 
         $this->notices = [];

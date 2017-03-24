@@ -66,7 +66,7 @@ class JsonResponse extends Response {
 
         if (is_array($jsonable))
         {
-            $json = json_encode($jsonable);
+            $json = json_encode($jsonable, JSON_NUMERIC_CHECK);
         }
         elseif ($jsonable instanceof Jsonable)
         {

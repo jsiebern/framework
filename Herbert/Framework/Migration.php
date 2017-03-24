@@ -47,7 +47,12 @@ class Migration {
         }
         $existing = $this->getExistingMigrations();
 
-        foreach ($this->migrations as $migration) {
+        $migrations = $this->migrations;
+        usort($migrations, function($a, $b) {
+            return strcmp($a->getName(), $b->getName());
+        });
+
+        foreach ($migrations as $migration) {
             $namespace = $migration->getNamespace();
             if ($namespace != $this->namespace) {
                 continue;
