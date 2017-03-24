@@ -23,6 +23,8 @@ class Update {
         $this->getLicense();
 
         if ($this->update_url) {
+            $this->registerPluginRowMeta();
+            $this->registerPluginInfo();
             $this->registerPluginUpdate();
         }
 
@@ -255,6 +257,81 @@ class Update {
         else {
             throw new \Exception('"'.$key.'" ist kein gültiger Lizenzschlüssel');
         }
+    }
+
+    private function registerPluginRowMeta() {
+        $plugin = $this->plugin_slug;
+        $plugin_data = $this->plugin_data;
+
+        add_filter('plugin_row_meta', function($links, $file) use($plugin, $plugin_data) {
+            if (strpos($file, $plugin) !== false) {
+                $links[2] = sprintf( '<a href="%s" class="thickbox" aria-label="%s" data-title="%s">%s</a>',
+                    esc_url( network_admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . $file .
+                        '&TB_iframe=true&width=600&height=550' ) ),
+                    esc_attr( sprintf( __( 'More information about %s' ), $plugin_data['Name'] ) ),
+                    esc_attr( $plugin_data['Name'] ),
+                    __( 'View details' )
+                );
+            }
+
+            return $links;
+        }, 10, 2);
+    }
+
+    private function registerPluginInfo() {
+        $url = $this->update_url;
+        $plugin = $this->plugin_slug;
+        $plugin_data = $this->plugin_data;
+
+        add_filter('plugins_api', function($def, $action, $params) use($url, $plugin, $plugin_data) {
+            $is_for_me = strpos($params->slug, $plugin) !== false;
+            if (!$is_for_me) {
+                return $def;
+            }
+
+            if ($action != 'plugin_information') {
+                return $def;
+            }
+
+            $params->plugin_name = $plugin_data['Name'];
+            $params->name = $plugin_data['Name'];
+            $params->author = $plugin_data['AuthorName'];
+            $params->homepage = $plugin_data['PluginURI'];
+
+            try {
+                $response = wp_remote_get(
+                    $url.'/'.$plugin.'/info'
+                );
+
+                if ($response['response']['code'] != 200) {
+                    throw new \Exception('<b>'.$plugin_data['Name'].' Updatewarnung:</b> <i>'.$response['response']['message'].'.</i>');
+                }
+
+                $body = json_decode(array_get($response, 'body', ''), true);
+                if ($body && isset($body['status']) && isset($body['payload'])) {
+                    if ($body['status'] == 'success') {
+                        foreach ($body['payload'] as $key=>$val) {
+                            $params->$key = $val;
+                        }
+                        $params->sections = [
+                            'description' => $plugin_data['Description'],
+                            'changelog' => $body['payload']['changelog']
+                        ];
+                    }
+                    else {
+                        Notifier::warning('<b>'.$plugin_data['Name'].' Updatewarnung:</b> <i>'.$body['payload'].'.</i>');
+                    }
+                }
+                else {
+                    Notifier::warning('<b>'.$plugin_data['Name'].' Updatewarnung:</b> <i>Fehler bei der Verbindung zum Updateserver: Fehlerhaftes Format..</i>');
+                }
+            }
+            catch (\Exception $e) {
+                $params = new WP_Error('plugins_api_failed', $e->getMessage());
+            }
+
+            return $params;
+        }, 10, 3);
     }
 
     private function registerPluginUpdate() {
