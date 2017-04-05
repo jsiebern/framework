@@ -37,6 +37,11 @@ class Update {
             'uri'   => '/wp-admin/'.$this->plugin_slug.'/free-license',
             'uses'  => [ $this, 'freeLicense' ]
         ]);
+        $this->app->router->get([
+            'as'    => $this->plugin_slug.'_free_license_public',
+            'uri'   => '/'.$this->plugin_slug.'/free-license',
+            'uses'  => [ $this, 'freeLicense' ]
+        ]);
 
         $this->app->router->post([
             'as'    => $this->plugin_slug.'_licensing',
@@ -69,7 +74,14 @@ class Update {
     }
 
     private function refetchLicense() {
-
+        try {
+            if ($this->license) {
+                $license = $this->fetchLicenseFromServer($this->license->key);
+                $this->storeLicense($license);
+            }
+        }
+        catch(\Exception $e) {
+        }
     }
 
     public function printRevalidationFailedScreen() {
@@ -116,6 +128,10 @@ class Update {
     public function freeLicense(Http $http) {
         if ($this->license) {
             $key = $this->license->key;
+            $foreign_key = $http->input('key');
+            if ($foreign_key && $foreign_key !== $key) {
+                exit;
+            }
 
             try {
                 $response = wp_remote_post(
@@ -158,7 +174,11 @@ class Update {
         
         $this->removeLicense();
 
-        // dd($http->isJSON());
+        if ($foreign_key) {
+            exit;
+        }
+
+        // if ($http->isJSON()) {}
         $redirect = (isset($_SERVER['HTTP_REFERER']) && $_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : admin_url();
         wp_redirect($redirect);
         exit;
@@ -247,6 +267,9 @@ class Update {
                     return new Cache($body['payload']);
                 }
                 else {
+                    if (isset($body['fatal']) && $body['fatal']) {
+                        $this->removeLicense();
+                    }
                     throw new \Exception('Fehler bei der Linzensierung: <i>'.$body['payload'].'</i>.');
                 }
             }
